@@ -249,8 +249,9 @@ const BSTInsertionPractice: React.FC = () => {
   const [existingValues, setExistingValues] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [insertionHistory, setInsertionHistory] = useState<number[]>([]); // Track insertion history
-  const [nodeCount, setNodeCount] = useState<number>(5);
+  const [insertionHistory, setInsertionHistory] = useState<number[]>([]);
+  const [nodeCount, setNodeCount] = useState<number>(7);
+  const [isHintVisible, setIsHintVisible] = useState<boolean>(false);
 
   // Generate a new random value not in the tree
   const generateRandomValue = useCallback(() => {
@@ -517,29 +518,45 @@ const BSTInsertionPractice: React.FC = () => {
             />
             <Panel
               position="top-right"
-              className="bg-slate-800 px-4 py-3 rounded-md text-white bg-opacity-80 shadow-md space-y-2"
+              className="bg-slate-800 px-4 py-3 rounded-md text-white bg-opacity-90 shadow-md space-y-2 max-w-xs"
             >
-              <p className="text-sm font-semibold">Insertion Hint</p>
-              <div className="text-sm space-y-1">
-                <p>
-                  Compare the value to insert with the{" "}
-                  <strong>current node</strong>:
-                  <br />
-                  &nbsp;&nbsp;
-                  <span className="text-indigo-400">If smaller</span>, go left.
-                  <br />
-                  &nbsp;&nbsp;<span className="text-pink-400">If larger</span>,
-                  go right.
-                </p>
-                <p>
-                  Keep moving down the tree until you find an empty spot.
-                  <br />
-                  Insert the new node at that position.
-                </p>
-              </div>
-              <p className="text-xs text-slate-400">
-                Inserting this way maintains the binary search tree property.
-              </p>
+              {/* Hint Toggle Button */}
+              <button
+                onClick={() => setIsHintVisible(!isHintVisible)}
+                className="w-full text-left text-xs font-medium text-indigo-300 hover:text-indigo-200 mb-1"
+              >
+                {isHintVisible ? "Hide Hint" : "Show Hint"} (
+                {isHintVisible ? "▲" : "▼"})
+              </button>
+
+              {/* Conditional Hint Content */}
+              {isHintVisible && (
+                <>
+                  <div className="text-sm space-y-1">
+                    <p>
+                      Compare the value to insert with the{" "}
+                      <strong>current node</strong>:
+                      <br />
+                      &nbsp;&nbsp;
+                      <span className="text-indigo-400">If smaller</span>, go
+                      left.
+                      <br />
+                      &nbsp;&nbsp;
+                      <span className="text-pink-400">If larger</span>, go
+                      right.
+                    </p>
+                    <p>
+                      Keep moving down the tree until you find an empty spot.
+                      <br />
+                      Insert the new node at that position.
+                    </p>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Inserting this way maintains the binary search tree
+                    property.
+                  </p>
+                </>
+              )}
             </Panel>
           </ReactFlow>
         ) : (

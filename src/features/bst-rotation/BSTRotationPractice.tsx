@@ -37,6 +37,7 @@ const BSTRotationPractice: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [existingValues, setExistingValues] = useState<Set<number>>(new Set());
   const [nodeCount, setNodeCount] = useState<number>(5);
+  const [isHintVisible, setIsHintVisible] = useState<boolean>(false);
 
   // Generate a new random BST
   const generateNewTree = useCallback(() => {
@@ -287,37 +288,52 @@ const BSTRotationPractice: React.FC = () => {
           />
           <Panel
             position="top-right"
-            className="bg-slate-800 px-4 py-3 rounded-md text-white bg-opacity-80 shadow-md space-y-2"
+            className="bg-slate-800 px-4 py-3 rounded-md text-white bg-opacity-90 shadow-md space-y-2 max-w-xs"
           >
-            <p className="text-sm font-semibold">Rotation Hint</p>
-            <div className="text-sm space-y-1">
-              <p>
-                <strong>Left Rotate</strong> at node <em>P</em>:
-                <br />
-                &nbsp;&nbsp;let <em>R = P.right</em>;
-                <br />
-                &nbsp;&nbsp;<em>P.right = R.left</em>;
-                <br />
-                &nbsp;&nbsp;<em>R.left = P</em>;
-                <br />
-                &nbsp;&nbsp;return <em>R</em> as the new root of this subtree.
-              </p>
-              <p>
-                <strong>Right Rotate</strong> at node <em>P</em>:
-                <br />
-                &nbsp;&nbsp;let <em>L = P.left</em>;
-                <br />
-                &nbsp;&nbsp;<em>P.left = L.right</em>;
-                <br />
-                &nbsp;&nbsp;<em>L.right = P</em>;
-                <br />
-                &nbsp;&nbsp;return <em>L</em> as the new root of this subtree.
-              </p>
-            </div>
-            <p className="text-xs text-slate-400">
-              Rotations preserve in-order traversal and help balance the tree
-              locally.
-            </p>
+            {/* Hint Toggle Button */}
+            <button
+              onClick={() => setIsHintVisible(!isHintVisible)}
+              className="w-full text-left text-xs font-medium text-indigo-300 hover:text-indigo-200 mb-1"
+            >
+              {isHintVisible ? "Hide Hint" : "Show Hint"} (
+              {isHintVisible ? "▲" : "▼"})
+            </button>
+
+            {/* Conditional Hint Content */}
+            {isHintVisible && (
+              <>
+                <div className="text-sm space-y-1">
+                  <p>
+                    <strong>Left Rotate</strong> at node <em>P</em>:
+                    <br />
+                    &nbsp;&nbsp;let <em>R = P.right</em>;
+                    <br />
+                    &nbsp;&nbsp;<em>P.right = R.left</em>;
+                    <br />
+                    &nbsp;&nbsp;<em>R.left = P</em>;
+                    <br />
+                    &nbsp;&nbsp;return <em>R</em> as the new root of this
+                    subtree.
+                  </p>
+                  <p>
+                    <strong>Right Rotate</strong> at node <em>P</em>:
+                    <br />
+                    &nbsp;&nbsp;let <em>L = P.left</em>;
+                    <br />
+                    &nbsp;&nbsp;<em>P.left = L.right</em>;
+                    <br />
+                    &nbsp;&nbsp;<em>L.right = P</em>;
+                    <br />
+                    &nbsp;&nbsp;return <em>L</em> as the new root of this
+                    subtree.
+                  </p>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Rotations preserve in-order traversal and help balance the
+                  tree locally.
+                </p>
+              </>
+            )}
           </Panel>
         </ReactFlow>
       </div>
