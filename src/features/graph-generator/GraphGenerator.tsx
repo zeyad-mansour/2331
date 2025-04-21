@@ -18,7 +18,6 @@ import {
   generateRandomGraph,
   toAdjacencyList,
   toAdjacencyMatrix,
-  generateCircularLayout,
 } from "../../lib/graph";
 
 // Define node styles for better visualization
