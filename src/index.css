@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ReactFlow height requirements */
+.react-flow-container {
+  min-height: 500px;
+  height: 100%;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: rgb(15 23 42); /* bg-slate-900 equivalent */
+}
+
+/* Special styling for nodes in light theme */
+.light-theme .react-flow__node {
+  border: 2px solid rgb(79 70 229);
+  background-color: white;
+  color: rgb(15 23 42);
+}
+
+/* Ensure controls are visible in dark mode */
+.react-flow__controls {
+  background-color: rgb(30 41 59);
+  border: 1px solid rgb(51 65 85);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.react-flow__controls-button {
+  border-color: rgb(51 65 85);
+  color: white;
+}
+
+.react-flow__controls-button:hover {
+  background-color: rgb(51 65 85);
+}
+
+/* Gradient text */
+.gradient-text {
+  background-image: linear-gradient(to right, rgb(99 102 241), rgb(236 72 153));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
