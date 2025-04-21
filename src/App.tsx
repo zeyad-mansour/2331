@@ -1,14 +1,15 @@
 // import './App.css'
 import BSTInsertionPracticeWrapper from "./features/bst-insertion/BSTInsertionPractice";
 // Removed other imports like GraphGenerator for now to focus on BST
-// import BSTRotationPractice from "./features/bst-rotation";
+import BSTRotationPractice from "./features/bst-rotation";
 
 function App() {
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6 flex flex-col">
       {/* Main content */}
-      <div className="flex-grow">
+      <div className="flex-grow space-y-8">
         <BSTInsertionPracticeWrapper />
+        <BSTRotationPractice />
       </div>
 
       {/* Footer */}

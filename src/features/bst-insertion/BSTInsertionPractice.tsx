@@ -17,8 +17,8 @@ import "reactflow/dist/style.css";
 import { BSTNode, insert, generateRandomBST } from "../../lib/bst";
 
 // --- Layout Constants ---
-const HORIZONTAL_SPACING = 80;
-const VERTICAL_SPACING = 100;
+const HORIZONTAL_SPACING = 15; // tighter horizontal spacing
+const VERTICAL_SPACING = 100; // increased vertical spacing for better splaying
 const NODE_WIDTH = 60;
 const NODE_HEIGHT = 60;
 
@@ -31,6 +31,8 @@ const InsertionControls = ({
   handleShowAnswer,
   generateNewProblem,
   handleContinue,
+  nodeCount,
+  setNodeCount,
 }: {
   valueToInsert: number | null;
   showFinalTree: boolean;
@@ -39,9 +41,25 @@ const InsertionControls = ({
   handleShowAnswer: () => void;
   generateNewProblem: () => void;
   handleContinue: () => void;
+  nodeCount: number;
+  setNodeCount: (count: number) => void;
 }) => (
   <div className="flex flex-col gap-4 w-full mx-auto mb-4">
     <div className="flex flex-wrap gap-4 justify-center items-center p-4 rounded-lg bg-slate-800 shadow-lg">
+      <div className="flex items-center gap-2">
+        <label htmlFor="nodeCount" className="font-medium text-gray-200">
+          Nodes: {nodeCount}
+        </label>
+        <input
+          id="nodeCount"
+          type="range"
+          min={1}
+          max={20}
+          value={nodeCount}
+          onChange={(e) => setNodeCount(parseInt(e.target.value, 10))}
+          className="w-32"
+        />
+      </div>
       <button
         onClick={generateNewProblem}
         className="px-4 py-2 rounded-lg font-semibold transition-all bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
@@ -110,106 +128,29 @@ const InsertionControls = ({
 );
 
 // --- Layout Helper ---
-// Calculates positions for nodes in a tree layout
+// Calculates positions for nodes in a tree layout using inorder traversal
 function calculateLayout(
-  node: BSTNode | null,
-  level = 0,
-  xOffset = 0,
-  positions: Map<number, { x: number; y: number }> = new Map(),
-  levelWidths: Map<number, number> = new Map()
-): {
-  positions: Map<number, { x: number; y: number }>;
-  levelWidths: Map<number, number>;
-  subtreeWidth: number;
-} {
-  if (!node) {
-    return { positions, levelWidths, subtreeWidth: 0 };
+  root: BSTNode | null
+): Map<number, { x: number; y: number }> {
+  const positions = new Map<number, { x: number; y: number }>();
+  let index = 0;
+  function inorder(node: BSTNode | null, depth: number) {
+    if (!node) return;
+    inorder(node.left, depth + 1);
+    positions.set(node.value, {
+      x: index * (NODE_WIDTH + HORIZONTAL_SPACING),
+      y: depth * VERTICAL_SPACING,
+    });
+    index++;
+    inorder(node.right, depth + 1);
   }
-
-  // Base width for a single node
-  const baseNodeWidth = NODE_WIDTH + 20; // Add some padding
-
-  // For leaf nodes, return immediately with fixed width
-  if (!node.left && !node.right) {
-    const nodeY = level * VERTICAL_SPACING;
-    positions.set(node.value, { x: xOffset, y: nodeY });
-
-    // Update level width
-    const currentLevelWidth = levelWidths.get(level) || 0;
-    levelWidths.set(
-      level,
-      Math.max(currentLevelWidth, xOffset + baseNodeWidth)
-    );
-
-    return { positions, levelWidths, subtreeWidth: baseNodeWidth };
-  }
-
-  // Process left subtree
-  const leftResult = calculateLayout(
-    node.left,
-    level + 1,
-    xOffset,
-    positions,
-    levelWidths
-  );
-
-  // Process right subtree (positioned after left subtree)
-  const rightOffset = xOffset + leftResult.subtreeWidth + HORIZONTAL_SPACING;
-  const rightResult = calculateLayout(
-    node.right,
-    level + 1,
-    rightOffset,
-    leftResult.positions,
-    leftResult.levelWidths
-  );
-
-  // Calculate width of current subtree
-  const subtreeWidth =
-    leftResult.subtreeWidth +
-    (node.left && node.right ? HORIZONTAL_SPACING : 0) +
-    rightResult.subtreeWidth;
-
-  // Calculate x position for current node (centered above children)
-  let nodeX;
-
-  if (node.left && node.right) {
-    // If both children exist, center between them
-    const leftChildX = positions.get(node.left.value)!.x;
-    const rightChildX = positions.get(node.right.value)!.x;
-    nodeX = (leftChildX + rightChildX) / 2;
-  } else if (node.left) {
-    // If only left child exists, position above it plus an offset
-    const leftChildX = positions.get(node.left.value)!.x;
-    nodeX = leftChildX + NODE_WIDTH / 2;
-  } else if (node.right) {
-    // If only right child exists, position above it minus an offset
-    const rightChildX = positions.get(node.right.value)!.x;
-    nodeX = rightChildX - NODE_WIDTH / 2;
-  } else {
-    // No children (should not reach here due to leaf node check above)
-    nodeX = xOffset + subtreeWidth / 2 - NODE_WIDTH / 2;
-  }
-
-  // Calculate y position based on level
-  const nodeY = level * VERTICAL_SPACING;
-
-  // Store position
-  positions.set(node.value, { x: nodeX, y: nodeY });
-
-  // Update level width
-  const currentLevelWidth = levelWidths.get(level) || 0;
-  levelWidths.set(level, Math.max(currentLevelWidth, nodeX + NODE_WIDTH));
-
-  return {
-    positions,
-    levelWidths,
-    subtreeWidth: Math.max(subtreeWidth, baseNodeWidth),
-  };
+  inorder(root, 0);
+  return positions;
 }
 
 // --- Conversion Helper ---
 // Converts BST structure to ReactFlow nodes and edges
-function convertBSTtoFlow(
+export function convertBSTtoFlow(
   bstRoot: BSTNode | null,
   highlightValue: number | null = null
 ): { nodes: Node[]; edges: Edge[] } {
@@ -217,7 +158,7 @@ function convertBSTtoFlow(
     return { nodes: [], edges: [] };
   }
 
-  const { positions } = calculateLayout(bstRoot);
+  const positions = calculateLayout(bstRoot);
   const flowNodes: Node[] = [];
   const flowEdges: Edge[] = [];
   const queue: (BSTNode | null)[] = [bstRoot];
@@ -309,6 +250,7 @@ const BSTInsertionPractice: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [insertionHistory, setInsertionHistory] = useState<number[]>([]); // Track insertion history
+  const [nodeCount, setNodeCount] = useState<number>(5);
 
   // Generate a new random value not in the tree
   const generateRandomValue = useCallback(() => {
@@ -362,9 +304,8 @@ const BSTInsertionPractice: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Generate a smaller tree for better visibility
-      const size = 5;
-      const newBst = generateRandomBST(size, 1, 50);
+      // Generate a tree with the selected number of nodes
+      const newBst = generateRandomBST(nodeCount, 1, 50);
 
       // Debug log
       console.log("Generated BST:", JSON.stringify(newBst, null, 2));
@@ -422,7 +363,7 @@ const BSTInsertionPractice: React.FC = () => {
       setError("Error generating tree: " + String(err));
       setIsLoading(false);
     }
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, nodeCount]);
 
   // Handle manual change of value to insert
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -484,7 +425,7 @@ const BSTInsertionPractice: React.FC = () => {
       {/* Upcoming features notice */}
       <div className="mb-3 text-right">
         <span className="text-xs text-slate-400">
-          Coming soon: BST Rotations
+          Coming soon: sorting visualizations
         </span>
       </div>
 
@@ -539,6 +480,8 @@ const BSTInsertionPractice: React.FC = () => {
         handleShowAnswer={handleShowAnswer}
         generateNewProblem={generateNewProblem}
         handleContinue={handleContinue}
+        nodeCount={nodeCount}
+        setNodeCount={setNodeCount}
       />
 
       {/* React Flow Visualization */}
@@ -574,18 +517,28 @@ const BSTInsertionPractice: React.FC = () => {
             />
             <Panel
               position="top-right"
-              className="bg-slate-800 px-3 py-2 rounded-md text-white bg-opacity-80 shadow-md"
+              className="bg-slate-800 px-4 py-3 rounded-md text-white bg-opacity-80 shadow-md space-y-2"
             >
-              <p className="text-sm font-medium">
-                Hint: BST nodes are arranged with
-              </p>
-              <p className="text-sm">
-                <span className="text-indigo-400">smaller values</span> to the
-                left
-              </p>
-              <p className="text-sm">
-                <span className="text-pink-400">larger values</span> to the
-                right
+              <p className="text-sm font-semibold">Insertion Hint</p>
+              <div className="text-sm space-y-1">
+                <p>
+                  Compare the value to insert with the{" "}
+                  <strong>current node</strong>:
+                  <br />
+                  &nbsp;&nbsp;
+                  <span className="text-indigo-400">If smaller</span>, go left.
+                  <br />
+                  &nbsp;&nbsp;<span className="text-pink-400">If larger</span>,
+                  go right.
+                </p>
+                <p>
+                  Keep moving down the tree until you find an empty spot.
+                  <br />
+                  Insert the new node at that position.
+                </p>
+              </div>
+              <p className="text-xs text-slate-400">
+                Inserting this way maintains the binary search tree property.
               </p>
             </Panel>
           </ReactFlow>

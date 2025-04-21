@@ -1,65 +1,89 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+// import { insert, rotateLeft, rotateRight, getRotationSteps } from "../../lib/bst";
 import {
   BSTNode,
-  insert,
-  rotateLeft,
-  rotateRight,
   findNode,
   canRotateLeft,
   canRotateRight,
-  getRotationSteps,
   applyRotation,
   cloneTree,
-  RotationStep,
+  generateRandomBST,
 } from "../../lib/bst";
-import TreeVisualizer from "../../components/tree/TreeVisualizer";
+import ReactFlow, {
+  Controls,
+  Background,
+  Panel,
+  Node,
+  useNodesState,
+  useEdgesState,
+  ReactFlowProvider,
+  ConnectionLineType,
+  BackgroundVariant,
+} from "reactflow";
+import "reactflow/dist/style.css";
+import { convertBSTtoFlow } from "../bst-insertion/BSTInsertionPractice";
+
+// Note: rotation uses the same layout helper from insertion for consistent spacing
 
 const BSTRotationPractice: React.FC = () => {
+  // React Flow state
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [root, setRoot] = useState<BSTNode | null>(null);
-  const [inputValue, setInputValue] = useState<string>("");
   const [selectedNodeValue, setSelectedNodeValue] = useState<number | null>(
     null
   );
-  const [rotationSteps, setRotationSteps] = useState<RotationStep[]>([]);
-  const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
   const [rotationType, setRotationType] = useState<"left" | "right">("left");
-  const [treeBeforeRotation, setTreeBeforeRotation] = useState<BSTNode | null>(
-    null
-  );
   const [message, setMessage] = useState<string>("");
+  const [existingValues, setExistingValues] = useState<Set<number>>(new Set());
+  const [nodeCount, setNodeCount] = useState<number>(5);
 
-  // Handle addition of new nodes to the tree
-  const handleAddNode = () => {
-    const value = parseInt(inputValue, 10);
-    if (isNaN(value)) {
-      setMessage("Please enter a valid number");
-      return;
+  // Generate a new random BST
+  const generateNewTree = useCallback(() => {
+    const newTree = generateRandomBST(nodeCount, 1, 50);
+    setRoot(newTree);
+    // collect values
+    const vals = new Set<number>();
+    function traverse(node: BSTNode | null) {
+      if (!node) return;
+      vals.add(node.value);
+      traverse(node.left);
+      traverse(node.right);
     }
+    traverse(newTree);
+    setExistingValues(vals);
+    setSelectedNodeValue(null);
+    setMessage("");
+  }, [nodeCount]);
+  useEffect(() => {
+    generateNewTree();
+  }, [generateNewTree]);
 
-    // Check if the node already exists
-    if (findNode(root, value)) {
-      setMessage(`Node with value ${value} already exists`);
-      return;
+  // Click handler for nodes in React Flow
+  const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const clickedValue = parseInt(node.id, 10);
+    if (!isNaN(clickedValue)) {
+      setSelectedNodeValue(clickedValue);
+      setMessage(`Selected node ${clickedValue} for rotation.`);
     }
+  }, []);
 
-    // Reset any ongoing rotation
-    resetRotation();
-
-    // Insert the new node
-    const newRoot = insert(root, value);
-    setRoot(newRoot);
-    setInputValue("");
-    setMessage(`Added node with value ${value}`);
-  };
+  // Update ReactFlow when tree or selection changes
+  useEffect(() => {
+    if (!root) return;
+    const { nodes: flowNodes, edges: flowEdges } = convertBSTtoFlow(
+      root,
+      selectedNodeValue
+    );
+    setNodes(flowNodes);
+    setEdges(flowEdges);
+  }, [root, selectedNodeValue]);
 
   // Handle node selection for rotation
   const handleNodeSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = parseInt(event.target.value, 10);
     if (!isNaN(value)) {
       setSelectedNodeValue(value);
-
-      // Reset any ongoing rotation
-      resetRotation();
 
       // Check if the selected node exists
       const node = findNode(root, value);
@@ -77,7 +101,6 @@ const BSTRotationPractice: React.FC = () => {
     event: React.ChangeEvent<HTMLSelectElement>
   ) => {
     setRotationType(event.target.value as "left" | "right");
-    resetRotation();
   };
 
   // Start rotation animation
@@ -87,67 +110,48 @@ const BSTRotationPractice: React.FC = () => {
       return;
     }
 
-    // Get steps for the rotation
-    const steps = getRotationSteps(root, selectedNodeValue, rotationType);
-
-    // Check if rotation is invalid
-    if (steps.length === 1 && steps[0].type === "invalid") {
-      setMessage(steps[0].description);
+    // Find the node in the current tree state to check rotation possibility
+    const nodeToRotate = findNode(root, selectedNodeValue);
+    if (!nodeToRotate) {
+      setMessage(`Node ${selectedNodeValue} not found in the current tree.`); // Should not happen if UI is synced
       return;
     }
 
-    // Save the current tree state for before/after comparison
-    setTreeBeforeRotation(cloneTree(root));
+    const canPerformRotation =
+      rotationType === "left"
+        ? canRotateLeft(nodeToRotate)
+        : canRotateRight(nodeToRotate);
 
-    // Set up the rotation
-    setRotationSteps(steps);
-    setCurrentStepIndex(0);
-    setMessage(steps[0].description);
-  };
-
-  // Handle next step in rotation
-  const handleNextStep = () => {
-    if (currentStepIndex < rotationSteps.length - 1) {
-      const nextIndex = currentStepIndex + 1;
-      setCurrentStepIndex(nextIndex);
-      setMessage(rotationSteps[nextIndex].description);
-
-      // If this is the "after" step, apply the rotation
-      if (rotationSteps[nextIndex].type === "after" && treeBeforeRotation) {
-        const pivotValue = rotationSteps[nextIndex].pivotValue;
-        if (pivotValue !== null) {
-          const newRoot = applyRotation(root, pivotValue, rotationType);
-          if (newRoot) {
-            setRoot(newRoot);
-          }
-        }
-      }
+    if (!canPerformRotation) {
+      setMessage(
+        `Cannot perform ${rotationType} rotation at node ${selectedNodeValue}.`
+      );
+      return;
     }
-  };
 
-  // Handle previous step in rotation
-  const handlePreviousStep = () => {
-    if (currentStepIndex > 0) {
-      const prevIndex = currentStepIndex - 1;
-      setCurrentStepIndex(prevIndex);
-      setMessage(rotationSteps[prevIndex].description);
-
-      // If going back from "after" to "before", restore the original tree
-      if (
-        rotationSteps[currentStepIndex].type === "after" &&
-        rotationSteps[prevIndex].type === "before" &&
-        treeBeforeRotation
-      ) {
-        setRoot(cloneTree(treeBeforeRotation));
-      }
+    // --- Ensure Immutability ---
+    // Clone the tree *before* rotating
+    const clonedRoot = cloneTree(root);
+    if (!clonedRoot) {
+      setMessage("Error: Failed to prepare tree for rotation.");
+      return;
     }
-  };
 
-  // Reset the rotation state
-  const resetRotation = () => {
-    setRotationSteps([]);
-    setCurrentStepIndex(-1);
-    setTreeBeforeRotation(null);
+    // Apply rotation to the *cloned* tree
+    const newRotatedRoot = applyRotation(
+      clonedRoot,
+      selectedNodeValue,
+      rotationType
+    );
+
+    // Update the main root state with the new, rotated tree structure
+    setRoot(newRotatedRoot); // This will trigger the useEffect to update ReactFlow
+
+    setMessage(
+      `${
+        rotationType.charAt(0).toUpperCase() + rotationType.slice(1)
+      } rotation at node ${selectedNodeValue} completed`
+    );
   };
 
   // Determine if a rotation can be performed
@@ -163,148 +167,166 @@ const BSTRotationPractice: React.FC = () => {
   };
 
   // Check if rotation controls should be disabled
-  const isRotationDisabled = rotationSteps.length > 0 || !canRotate();
-
-  // Determine which tree to show
-  const treeToDisplay = root;
-
-  // Generate a sample array of selectable node values
-  const nodeValues = React.useMemo(() => {
-    const collectValues = (
-      node: BSTNode | null,
-      values: number[] = []
-    ): number[] => {
-      if (!node) return values;
-      values.push(node.value);
-      collectValues(node.left, values);
-      collectValues(node.right, values);
-      return values;
-    };
-
-    return collectValues(root).sort((a, b) => a - b);
-  }, [root]);
+  const isRotationDisabled = !canRotate();
 
   return (
-    <div className="p-4 border rounded shadow mt-4 bg-white">
-      <h2 className="text-xl font-semibold mb-4">BST Rotation Practice</h2>
+    <div className="flex flex-col h-full bg-slate-800 rounded-xl shadow-2xl p-4">
+      <h1 className="text-3xl md:text-4xl font-bold text-center mb-6 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-pink-500">
+        Binary Search Tree Rotation Practice
+      </h1>
 
-      {/* Node Insertion Controls */}
-      <div className="mb-4 p-3 bg-gray-50 rounded">
-        <h3 className="text-md font-medium mb-2">Add Nodes to Tree</h3>
-        <div className="flex space-x-2">
-          <input
-            type="number"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Enter value"
-            className="border px-2 py-1 rounded w-32 text-black"
-          />
+      <div className="flex flex-col gap-4 w-full mx-auto mb-4">
+        <div className="flex flex-wrap gap-4 justify-center items-center p-4 rounded-lg bg-slate-700 shadow-lg">
+          <div className="flex items-center gap-2">
+            <label htmlFor="nodeCount" className="font-medium text-gray-200">
+              Nodes: {nodeCount}
+            </label>
+            <input
+              id="nodeCount"
+              type="range"
+              min={1}
+              max={20}
+              value={nodeCount}
+              onChange={(e) => setNodeCount(parseInt(e.target.value, 10))}
+              className="w-32"
+            />
+          </div>
           <button
-            onClick={handleAddNode}
-            className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded"
+            onClick={generateNewTree}
+            className="px-4 py-2 rounded-lg font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
           >
-            Add Node
+            Generate New Tree
           </button>
-        </div>
-      </div>
-
-      {/* Tree Visualization */}
-      <div className="border h-64 bg-gray-50 rounded mb-4 overflow-hidden">
-        <TreeVisualizer
-          root={treeToDisplay}
-          highlightedNodeValue={selectedNodeValue}
-          width={600}
-          height={250}
-        />
-      </div>
-
-      {/* Rotation Controls */}
-      <div className="mb-4 p-3 bg-gray-50 rounded">
-        <h3 className="text-md font-medium mb-2">Rotation Controls</h3>
-        <div className="flex flex-wrap gap-2 mb-2">
-          <div className="flex items-center">
-            <label className="mr-2">Node:</label>
+          <div className="flex items-center gap-2">
+            <label htmlFor="selectNode" className="font-medium text-gray-200">
+              Node to Rotate:
+            </label>
             <select
+              id="selectNode"
               value={selectedNodeValue || ""}
               onChange={handleNodeSelect}
-              className="border px-2 py-1 rounded text-black"
-              disabled={rotationSteps.length > 0}
+              className="px-3 py-2 rounded-md bg-slate-900 text-white border border-indigo-500 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
             >
               <option value="">Select Node</option>
-              {nodeValues.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
+              {Array.from(existingValues)
+                .sort((a, b) => a - b)
+                .map((val) => (
+                  <option key={val} value={val}>
+                    {val}
+                  </option>
+                ))}
             </select>
           </div>
-
-          <div className="flex items-center ml-4">
-            <label className="mr-2">Rotation:</label>
+          <div className="flex items-center gap-2">
+            <label htmlFor="rotationType" className="font-medium text-gray-200">
+              Rotation:
+            </label>
             <select
+              id="rotationType"
               value={rotationType}
               onChange={handleRotationTypeChange}
-              className="border px-2 py-1 rounded text-black"
-              disabled={rotationSteps.length > 0}
+              className="px-3 py-2 rounded-md bg-slate-900 text-white border border-indigo-500 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
             >
-              <option value="left">Left Rotation</option>
-              <option value="right">Right Rotation</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
             </select>
           </div>
-
           <button
             onClick={handleRotate}
             disabled={isRotationDisabled}
-            className={`ml-4 font-bold py-1 px-3 rounded ${
-              isRotationDisabled
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-blue-500 hover:bg-blue-700 text-white"
+            className={`px-4 py-2 rounded-lg font-semibold shadow-md transition-all ${
+              canRotate()
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                : "bg-slate-600 text-slate-300 cursor-not-allowed opacity-60"
             }`}
           >
-            Rotate
+            {rotationType === "left" ? "Rotate Left" : "Rotate Right"}
           </button>
         </div>
       </div>
 
-      {/* Status Message */}
-      <div className="bg-gray-50 p-3 rounded mb-3 min-h-[2rem]">
-        <p className="text-gray-700">{message}</p>
-      </div>
-
-      {/* Navigation Controls */}
-      {rotationSteps.length > 0 && (
-        <div className="flex justify-between items-center">
-          <p className="text-sm text-gray-600">
-            Step {currentStepIndex + 1} of {rotationSteps.length}
-          </p>
-          <div>
-            <button
-              onClick={handlePreviousStep}
-              disabled={currentStepIndex <= 0}
-              className={`py-1 px-3 rounded mr-2 ${
-                currentStepIndex <= 0
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold"
-              }`}
-            >
-              Previous
-            </button>
-            <button
-              onClick={handleNextStep}
-              disabled={currentStepIndex >= rotationSteps.length - 1}
-              className={`py-1 px-3 rounded ${
-                currentStepIndex >= rotationSteps.length - 1
-                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold"
-              }`}
-            >
-              Next
-            </button>
-          </div>
+      {/* Error and status message */}
+      {message && (
+        <div className="p-2 bg-pink-600 text-white rounded mb-2 text-center">
+          {message}
         </div>
       )}
+
+      {/* Removed multi-step controls; rotation happens immediately */}
+
+      {/* React Flow Visualization */}
+      <div
+        className="flex-grow rounded-lg overflow-hidden react-flow-container border border-slate-700 shadow-inner"
+        style={{ minHeight: "400px", height: "60vh", maxHeight: "700px" }}
+      >
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={handleNodeClick}
+          fitView
+          fitViewOptions={{ padding: 0.5, includeHiddenNodes: true }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          connectionLineType={ConnectionLineType.Straight}
+          minZoom={0.1}
+          maxZoom={2}
+          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+          className="bg-slate-900"
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="rgba(148, 163, 184, 0.1)"
+          />
+          <Controls
+            showInteractive={false}
+            className="bg-slate-800 border-slate-700 text-white"
+          />
+          <Panel
+            position="top-right"
+            className="bg-slate-800 px-4 py-3 rounded-md text-white bg-opacity-80 shadow-md space-y-2"
+          >
+            <p className="text-sm font-semibold">Rotation Hint</p>
+            <div className="text-sm space-y-1">
+              <p>
+                <strong>Left Rotate</strong> at node <em>P</em>:
+                <br />
+                &nbsp;&nbsp;let <em>R = P.right</em>;
+                <br />
+                &nbsp;&nbsp;<em>P.right = R.left</em>;
+                <br />
+                &nbsp;&nbsp;<em>R.left = P</em>;
+                <br />
+                &nbsp;&nbsp;return <em>R</em> as the new root of this subtree.
+              </p>
+              <p>
+                <strong>Right Rotate</strong> at node <em>P</em>:
+                <br />
+                &nbsp;&nbsp;let <em>L = P.left</em>;
+                <br />
+                &nbsp;&nbsp;<em>P.left = L.right</em>;
+                <br />
+                &nbsp;&nbsp;<em>L.right = P</em>;
+                <br />
+                &nbsp;&nbsp;return <em>L</em> as the new root of this subtree.
+              </p>
+            </div>
+            <p className="text-xs text-slate-400">
+              Rotations preserve in-order traversal and help balance the tree
+              locally.
+            </p>
+          </Panel>
+        </ReactFlow>
+      </div>
     </div>
   );
 };
 
-export default BSTRotationPractice;
+export default () => (
+  <ReactFlowProvider>
+    <BSTRotationPractice />
+  </ReactFlowProvider>
+);
